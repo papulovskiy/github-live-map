@@ -11,7 +11,7 @@ const (
 	ApiUrl = "https://api.github.com/events"
 )
 
-func ReadEvents(result interface{}) error {
+func ReadEvents(result *interface{}) error {
 	res, err := http.Get(ApiUrl)
 	if err != nil {
 		return err
@@ -28,8 +28,20 @@ func ReadEvents(result interface{}) error {
 	return nil
 }
 
+func ProcessEvents(result *interface{}) error {
+	fmt.Printf("%+v", *result)
+	return nil
+}
+
+func Loop() error {
+	var r interface{}
+	for {
+		ReadEvents(&r)
+		ProcessEvents(&r)
+	}
+	return nil
+}
+
 func main() {
-	var p interface{}
-	ReadEvents(&p)
-	fmt.Printf("%+v", p)
+	Loop()
 }
