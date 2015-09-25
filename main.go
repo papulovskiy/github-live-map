@@ -11,7 +11,21 @@ const (
 	ApiUrl = "https://api.github.com/events"
 )
 
-func ReadEvents(result *interface{}) error {
+type Event struct {
+	Id	string			`json:"id",string`
+	Type	string			`json:"type"`
+	Actor	interface{}		`json:"actor"`
+	Repo	interface{}		`json:"repo"`
+	Payload	interface{}		`json:"payload"`
+	Public	bool			`json:"public"`
+	Created_at	string		`json:"created_at"`
+	Org	interface{}		`json:"org,omitempty"`
+}
+type ApiResponse struct {
+	Events []Event
+}
+
+func ReadEvents(result *ApiResponse) error {
 	res, err := http.Get(ApiUrl)
 	if err != nil {
 		return err
@@ -21,22 +35,27 @@ func ReadEvents(result *interface{}) error {
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(body, &result)
+	err = json.Unmarshal(body, &result.Events)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func ProcessEvents(result *interface{}) error {
-	fmt.Printf("%+v", *result)
+func ProcessEvents(result *ApiResponse) error {
+	for index, e := range result.Events {
+		fmt.Printf("%d %+v\n", index, e.Type)
+	}
 	return nil
 }
 
 func Loop() error {
-	var r interface{}
+	var r ApiResponse 
 	for {
-		ReadEvents(&r)
+		err := ReadEvents(&r)
+		if err != nil {
+			panic(err)
+		}
 		ProcessEvents(&r)
 	}
 	return nil
