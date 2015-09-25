@@ -7,24 +7,29 @@ import (
 	"net/http"
 )
 
-func main() {
-	url := "https://api.github.com/events"
-	res, err := http.Get(url)
+const (
+	ApiUrl = "https://api.github.com/events"
+)
+
+func ReadEvents(result interface{}) error {
+	res, err := http.Get(ApiUrl)
 	if err != nil {
-		// TODO: error handling
-		panic(err)
+		return err
 	}
 	defer res.Body.Close()
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		// TODO: error handling
-		panic(err)
+		return err
 	}
-	var p interface{}
-	err = json.Unmarshal(body, &p)
+	err = json.Unmarshal(body, &result)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
+}
 
+func main() {
+	var p interface{}
+	ReadEvents(&p)
 	fmt.Printf("%+v", p)
 }
