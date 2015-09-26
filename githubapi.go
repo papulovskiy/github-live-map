@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+//	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -47,14 +47,15 @@ func ReadEvents(result *ApiResponse, remaining, reset *int64) error {
 	return nil
 }
 
-func ProcessEvents(result *ApiResponse) error {
-	for index, e := range result.Events {
-		fmt.Printf("%d %+v\n", index, e.Type)
+func ProcessEvents(result *ApiResponse, ch chan Event) error {
+	for _, e := range result.Events {
+		ch <- e
+		//fmt.Printf("%d %+v\n", index, e.Type)
 	}
 	return nil
 }
 
-func Loop() error {
+func Loop(ch chan Event) error {
 	var r ApiResponse
 	var remaining int64
 	var reset int64
@@ -63,7 +64,7 @@ func Loop() error {
 		if err != nil {
 			panic(err)
 		}
-		ProcessEvents(&r)
+		ProcessEvents(&r, ch)
 		time_diff := reset - time.Now().Unix()
 		if time_diff < 0 {
 			time_diff = time_diff * -1
