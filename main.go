@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 const (
@@ -25,7 +27,7 @@ type ApiResponse struct {
 	Events []Event
 }
 
-func ReadEvents(result *ApiResponse) error {
+func ReadEvents(result *ApiResponse, remaining, reset *int64) error {
 	res, err := http.Get(ApiUrl)
 	if err != nil {
 		return err
@@ -39,6 +41,8 @@ func ReadEvents(result *ApiResponse) error {
 	if err != nil {
 		return err
 	}
+	*remaining, _ = strconv.ParseInt(res.Header["X-Ratelimit-Remaining"][0], 10, 64)
+	*reset, _     = strconv.ParseInt(res.Header["X-Ratelimit-Reset"][0], 10, 64)
 	return nil
 }
 
@@ -50,13 +54,26 @@ func ProcessEvents(result *ApiResponse) error {
 }
 
 func Loop() error {
-	var r ApiResponse 
+	var r ApiResponse
+	var remaining int64
+	var reset int64
 	for {
-		err := ReadEvents(&r)
+		err := ReadEvents(&r, &remaining, &reset)
 		if err != nil {
 			panic(err)
 		}
 		ProcessEvents(&r)
+		time_diff := reset - time.Now().Unix()
+		if time_diff < 0 {
+			time_diff = time_diff * -1
+		}
+		if remaining <= 0 {
+			remaining = 1
+			time_diff += 3 // just add a few seconds if we're close to rate limit
+		}
+		pause := int64(time_diff / remaining)
+		//fmt.Printf("%d %d %d %d %d\n", remaining, reset, time.Now().Unix(), time_diff, pause)
+		time.Sleep(time.Duration(pause) * time.Second)
 	}
 	return nil
 }
