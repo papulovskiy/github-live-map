@@ -11,13 +11,21 @@ import (
 
 // TODO: Implement oAuth token here 
 const (
-	ApiUrl = "https://api.github.com/events"
+	ApiBase = "https://api.github.com/"
 )
+
+type Actor struct {
+	Id	int64		`json:"id"`
+	Login	string		`json:"login"`
+	Gravatar_id	string	`json:"gravatar_id"`
+	Url	string		`json:"url"`
+	Avatar_url	string	`json:"avatar_url"`
+}
 
 type Event struct {
 	Id	string			`json:"id",string`
 	Type	string			`json:"type"`
-	Actor	interface{}		`json:"actor"`
+	Actor	Actor			`json:"actor"`
 	Repo	interface{}		`json:"repo"`
 	Payload	interface{}		`json:"payload"`
 	Public	bool			`json:"public"`
@@ -29,7 +37,7 @@ type ApiResponse struct {
 }
 
 func ReadEvents(result *ApiResponse, remaining, reset *int64) error {
-	res, err := http.Get(ApiUrl)
+	res, err := http.Get(ApiBase + "events")
 	if err != nil {
 		return err
 	}

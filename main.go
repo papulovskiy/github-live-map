@@ -7,6 +7,8 @@ import (
 func main() {
 	ch := make(chan Event)
 	go Loop(ch)
-	e := <-ch
-	fmt.Printf("%+v\n", e.Type)
+	for {
+		e := <-ch
+		fmt.Printf("%+v %+v\n", e.Actor, e.Type)
+	}
 }
