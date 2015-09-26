@@ -110,7 +110,7 @@ func ProfileResolverLoop(ProfileCh chan Event, MessageCh chan Message) error {
 		m.Type = event.Type
 		m.User = u
 		MessageCh <-m
-//		time.Sleep(time.Duration(3) * time.Second) // sleep here is only for testing purpose
+		time.Sleep(time.Duration(3) * time.Second) // sleep here is only for testing purpose
 	}
 	return nil
 }
