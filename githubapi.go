@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-//	"github.com/hashicorp/golang-lru"
+	//	"github.com/hashicorp/golang-lru"
 	"github.com/hishboy/gocommons/lang"
 	"io/ioutil"
 	"net/http"
@@ -11,29 +11,29 @@ import (
 	"time"
 )
 
-// TODO: Implement oAuth token here 
+// TODO: Implement oAuth token here
 const (
 	ApiBase = "https://api.github.com/"
 )
 
 type Actor struct {
-	Id	int64		`json:"id"`
-	Login	string		`json:"login"`
-	Gravatar_id	string	`json:"gravatar_id"`
-	Url	string		`json:"url"`
-	Avatar_url	string	`json:"avatar_url"`
-	Location	string	`json:"location",omitempty`
+	Id          int64  `json:"id"`
+	Login       string `json:"login"`
+	Gravatar_id string `json:"gravatar_id"`
+	Url         string `json:"url"`
+	Avatar_url  string `json:"avatar_url"`
+	Location    string `json:"location",omitempty`
 }
 
 type Event struct {
-	Id	string			`json:"id",string`
-	Type	string			`json:"type"`
-	Actor	Actor			`json:"actor"`
-	Repo	interface{}		`json:"repo"`
-	Payload	interface{}		`json:"payload"`
-	Public	bool			`json:"public"`
-	Created_at	string		`json:"created_at"`
-	Org	interface{}		`json:"org,omitempty"`
+	Id         string      `json:"id",string`
+	Type       string      `json:"type"`
+	Actor      Actor       `json:"actor"`
+	Repo       interface{} `json:"repo"`
+	Payload    interface{} `json:"payload"`
+	Public     bool        `json:"public"`
+	Created_at string      `json:"created_at"`
+	Org        interface{} `json:"org,omitempty"`
 }
 type ApiResponse struct {
 	Events []Event
@@ -54,7 +54,7 @@ func ReadEvents(result *ApiResponse, remaining, reset *int64) error {
 		return err
 	}
 	*remaining, _ = strconv.ParseInt(res.Header["X-Ratelimit-Remaining"][0], 10, 64)
-	*reset, _     = strconv.ParseInt(res.Header["X-Ratelimit-Reset"][0], 10, 64)
+	*reset, _ = strconv.ParseInt(res.Header["X-Ratelimit-Reset"][0], 10, 64)
 	return nil
 }
 
@@ -92,12 +92,12 @@ func Reader(ch chan Event) error {
 	return nil
 }
 
-
 // So... Here we need to fetch user's location or check in the cache
 // I'd prefer to make two layers of cache:
 //	* small in-memory to handle most recent active users
 //	* bigger cache based on redis to reduce amount of API calls
 func ProfileResolverLoop(ProfileCh chan Event, MessageCh chan Message) error {
+	localUser
 	for {
 		event := <-ProfileCh
 		fmt.Printf("Profile Resolver loop: %+v %+v\n", event.Actor.Login, event.Type)
@@ -109,12 +109,11 @@ func ProfileResolverLoop(ProfileCh chan Event, MessageCh chan Message) error {
 		m.EventId = event.Id
 		m.Type = event.Type
 		m.User = u
-		MessageCh <-m
-//		time.Sleep(time.Duration(3) * time.Second) // sleep here is only for testing purpose
+		MessageCh <- m
+		//		time.Sleep(time.Duration(3) * time.Second) // sleep here is only for testing purpose
 	}
 	return nil
 }
-
 
 /*
 	This loop is to buffer events from Reader and pass them one by one to profile resolver
@@ -122,27 +121,27 @@ func ProfileResolverLoop(ProfileCh chan Event, MessageCh chan Message) error {
 */
 func ProfileLoop(EventCh chan Event, MessageCh chan Message) error {
 	queue := lang.NewQueue()
-	ProfileCh := make(chan Event)    // channel between queue and profile resolver
-	go ProfileResolverLoop(ProfileCh, MessageCh)    // profile resolver loop
+	ProfileCh := make(chan Event)                // channel between queue and profile resolver
+	go ProfileResolverLoop(ProfileCh, MessageCh) // profile resolver loop
 	for {
 		select {
-			case event := <-EventCh:
-				queue.Push(event)
-				fmt.Printf("Profiler, event queued: %+v %+v\n", event.Actor.Login, event.Type)
-			default:
-				/* Here we're trying to send event to profile resolver,
-				   if it does not receive event, we put it back to the queue */
-				if queue.Len() > 0 {
-					item := queue.Poll()
-					select {
-						case ProfileCh <- item.(Event):
-						default:
-							queue.Push(item)
-					}
+		case event := <-EventCh:
+			queue.Push(event)
+			fmt.Printf("Profiler, event queued: %+v %+v\n", event.Actor.Login, event.Type)
+		default:
+			/* Here we're trying to send event to profile resolver,
+			   if it does not receive event, we put it back to the queue */
+			if queue.Len() > 0 {
+				item := queue.Poll()
+				select {
+				case ProfileCh <- item.(Event):
+				default:
+					queue.Push(item)
 				}
-//				fmt.Printf("Nothing to do\n")
+			}
+			//				fmt.Printf("Nothing to do\n")
 		}
-//		fmt.Printf("Profiler: %+v %+v\n", event.Actor.Login, event.Type)
+		//		fmt.Printf("Profiler: %+v %+v\n", event.Actor.Login, event.Type)
 	}
 	return nil
 }
