@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 //	"github.com/hashicorp/golang-lru"
+	"github.com/hishboy/gocommons/lang"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -21,6 +22,7 @@ type Actor struct {
 	Gravatar_id	string	`json:"gravatar_id"`
 	Url	string		`json:"url"`
 	Avatar_url	string	`json:"avatar_url"`
+	Location	string	`json:"location",omitempty`
 }
 
 type Event struct {
@@ -67,7 +69,6 @@ func Reader(ch chan Event) error {
 	var r ApiResponse
 	var remaining, reset int64
 
-//	lru, _ := lru.New(256)
 	for {
 		fmt.Printf("Reader iteration\n")
 		err := ReadEvents(&r, &remaining, &reset)
@@ -91,14 +92,57 @@ func Reader(ch chan Event) error {
 	return nil
 }
 
+
 // So... Here we need to fetch user's location or check in the cache
 // I'd prefer to make two layers of cache:
 //	* small in-memory to handle most recent active users
 //	* bigger cache based on redis to reduce amount of API calls
-func Profiler(EventCh chan Event, MessageCh chan Message) error {
+func ProfileResolverLoop(ProfileCh chan Event, MessageCh chan Message) error {
 	for {
-		event := <-EventCh
-		fmt.Printf("Profiler: %+v %+v\n", event.Actor.Login, event.Type)
+		event := <-ProfileCh
+		fmt.Printf("Profile Resolver loop: %+v %+v\n", event.Actor.Login, event.Type)
+		var m Message
+		var u User
+		u.Id = event.Actor.Id
+		u.Login = event.Actor.Login
+		u.Avatar = "" // TODO: load avatar and send it as base64 or just skip it
+		m.EventId = event.Id
+		m.Type = event.Type
+		m.User = u
+		MessageCh <-m
+//		time.Sleep(time.Duration(3) * time.Second) // sleep here is only for testing purpose
+	}
+	return nil
+}
+
+
+/*
+	This loop is to buffer events from Reader and pass them one by one to profile resolver
+	because channels operations in go are blocking
+*/
+func ProfileLoop(EventCh chan Event, MessageCh chan Message) error {
+	queue := lang.NewQueue()
+	ProfileCh := make(chan Event)    // channel between queue and profile resolver
+	go ProfileResolverLoop(ProfileCh, MessageCh)    // profile resolver loop
+	for {
+		select {
+			case event := <-EventCh:
+				queue.Push(event)
+				fmt.Printf("Profiler, event queued: %+v %+v\n", event.Actor.Login, event.Type)
+			default:
+				/* Here we're trying to send event to profile resolver,
+				   if it does not receive event, we put it back to the queue */
+				if queue.Len() > 0 {
+					item := queue.Poll()
+					select {
+						case ProfileCh <- item.(Event):
+						default:
+							queue.Push(item)
+					}
+				}
+//				fmt.Printf("Nothing to do\n")
+		}
+//		fmt.Printf("Profiler: %+v %+v\n", event.Actor.Login, event.Type)
 	}
 	return nil
 }
@@ -106,6 +150,6 @@ func Profiler(EventCh chan Event, MessageCh chan Message) error {
 func GitHubLoop(MessageCh chan Message) error {
 	EventCh := make(chan Event)
 	go Reader(EventCh)
-	go Profiler(EventCh, MessageCh)
+	go ProfileLoop(EventCh, MessageCh)
 	return nil
 }
