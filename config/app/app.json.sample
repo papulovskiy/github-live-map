@@ -1,0 +1,7 @@
+{
+	"EventsApiToken":"",
+	"ProfilesApiToken":"",
+	"Port":"8080",
+	"Uri":"ws",
+	"WS":false
+}
