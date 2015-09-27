@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/gorilla/websocket"
-	"net/http"
 	"io/ioutil"
+	"net/http"
 )
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
@@ -15,7 +15,6 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", content)
 }
 
-
 func mux(ch chan Message, pool map[int]*websocket.Conn) {
 	for {
 		m := <-ch
@@ -25,12 +24,12 @@ func mux(ch chan Message, pool map[int]*websocket.Conn) {
 	}
 }
 
-
 var client_id int = 0
+
 func wsLoop(port string, uri string, message chan Message) {
 	pool := make(map[int]*websocket.Conn)
 	go mux(message, pool)
-	http.HandleFunc("/" + uri, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/"+uri, func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Upgrade(w, r, w.Header(), 1024, 1024)
 		if err != nil {
 			http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
@@ -40,6 +39,6 @@ func wsLoop(port string, uri string, message chan Message) {
 		pool[client_id] = conn
 	})
 	http.HandleFunc("/", rootHandler)
-	panic(http.ListenAndServe(":" + port, nil))
+	panic(http.ListenAndServe(":"+port, nil))
 
 }

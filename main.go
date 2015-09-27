@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"os"
 )
 
@@ -11,28 +11,27 @@ type msg struct {
 }
 
 type Configuration struct {
-	EventsApiToken	string
-	ProfilesApiToken	string
-	WS	bool
-	Port	string
-	Uri	string
+	EventsApiToken   string
+	ProfilesApiToken string
+	WS               bool
+	Port             string
+	Uri              string
 }
 
 type User struct {
-	Id int64
-	Login string
+	Id       int64
+	Login    string
 	Location string
-	Avatar string
+	Avatar   string
 }
 
 type Message struct {
-	EventId string
-	Type string
-	User User
-	Latitude float64
+	EventId   string
+	Type      string
+	User      User
+	Latitude  float64
 	Longitude float64
 }
-
 
 func ReadConfig() Configuration {
 	file, _ := os.Open("config/app/app.json")
@@ -55,7 +54,7 @@ func main() {
 		wsLoop(conf.Port, conf.Uri, ch)
 	} else {
 		for {
-			m := <- ch
+			m := <-ch
 			fmt.Printf("%+v\n", m)
 		}
 	}
