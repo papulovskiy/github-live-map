@@ -56,24 +56,28 @@ func ReadEvents(result *ApiResponse, remaining, reset *int64) error {
 	return nil
 }
 
-func ProcessEvents(result *ApiResponse, ch chan<- Event) error {
-	for _, e := range result.Events {
-		ch <- e
-	}
-	return nil
-}
-
 func Reader(ch chan<- Event) error {
 	var r ApiResponse
 	var remaining, reset int64
 
+	previousEvents := make(map[string]bool)
 	for {
+		currentEvents := make(map[string]bool)
 		fmt.Printf("Reader iteration\n")
 		err := ReadEvents(&r, &remaining, &reset)
 		if err != nil {
 			panic(err)
 		}
-		ProcessEvents(&r, ch)
+
+		for _, e := range r.Events {
+			if _, ok := previousEvents[e.Id]; !ok {
+				ch <- e
+				currentEvents[e.Id] = true
+			}
+		}
+		previousEvents = currentEvents
+
+		// Pause stuff to respect rate limits
 		time_diff := reset - time.Now().Unix()
 		if time_diff < 0 {
 			time_diff = time_diff * -1
@@ -83,6 +87,10 @@ func Reader(ch chan<- Event) error {
 			time_diff += 3 // just add a few seconds if we're close to rate limit
 		}
 		pause := int64(time_diff / remaining)
+		if pause < 1 {
+			// Let's not go faster than light, at least for now
+			pause = 1
+		}
 		fmt.Printf("Reader pause %d seconds\n", pause)
 		//fmt.Printf("%d %d %d %d %d\n", remaining, reset, time.Now().Unix(), time_diff, pause)
 		time.Sleep(time.Duration(pause) * time.Second)
@@ -120,7 +128,6 @@ func ProfileResolverLoop(ProfileCh <-chan Event, MessageCh chan<- Message) error
 /*
 	This function was removed because I found great Go's feature: buffered channels!
 */
-
 
 func GitHubLoop(MessageCh chan<- Message) error {
 	EventCh := make(chan Event, 100) // Let's assume that if we're stuck on profile resolving, we shouldn't be reading a lot of new events
