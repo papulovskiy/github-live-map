@@ -97,7 +97,7 @@ func Reader(ch chan Event) error {
 //	* small in-memory to handle most recent active users
 //	* bigger cache based on redis to reduce amount of API calls
 func ProfileResolverLoop(ProfileCh chan Event, MessageCh chan Message) error {
-	localUser
+//	localUsers := make(map[string]*User)
 	for {
 		event := <-ProfileCh
 		fmt.Printf("Profile Resolver loop: %+v %+v\n", event.Actor.Login, event.Type)
