@@ -2,9 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/gorilla/websocket"
-	"net/http"
-	"io/ioutil"
 	"encoding/json"
 	"os"
 )
@@ -16,6 +13,9 @@ type msg struct {
 type Configuration struct {
 	EventsApiToken	string
 	ProfilesApiToken	string
+	WS	bool
+	Port	string
+	Uri	string
 }
 
 type User struct {
@@ -33,57 +33,6 @@ type Message struct {
 	Longitude float64
 }
 
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	content, err := ioutil.ReadFile("index.html")
-	if err != nil {
-		fmt.Println("Could not open file.", err)
-	}
-	fmt.Fprintf(w, "%s", content)
-}
-
-func wsHandler(w http.ResponseWriter, r *http.Request) {
-//	if r.Header.Get("Origin") != "http://"+r.Host {
-//		http.Error(w, "Origin not allowed", 403)
-//		return
-//	}
-	conn, err := websocket.Upgrade(w, r, w.Header(), 1024, 1024)
-	if err != nil {
-		http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
-		return
-	}
-
-	go echo(conn)
-}
-
-func echo(conn *websocket.Conn) {
-	for {
-		m := msg{}
-
-//		err := conn.ReadJSON(&m)
-//		if err != nil {
-//			fmt.Println("Error reading json.", err)
-//			conn.Close()
-//			return
-//		}
-
-		fmt.Printf("Got message: %#v\n", m)
-
-		if err := conn.WriteJSON(m); err != nil {
-			fmt.Println(err)
-			conn.Close()
-			return
-		}
-	}
-}
-
-func mux(ch chan Message, pool map[int]*websocket.Conn) {
-	for {
-		m := <-ch
-		for _, conn := range pool {
-			conn.WriteJSON(m)
-		}
-	}
-}
 
 func ReadConfig() Configuration {
 	file, _ := os.Open("config/app/app.json")
@@ -92,28 +41,22 @@ func ReadConfig() Configuration {
 	err := decoder.Decode(&configuration)
 	if err != nil {
 		fmt.Println("error:", err)
+		// TODO: make better error handling
 	}
 	return configuration
 }
 
-var client_id int = 0
 func main() {
 	conf := ReadConfig()
 	fmt.Printf("%+v\n", conf)
 	ch := make(chan Message)
 	go GitHubLoop(ch)
-	pool := make(map[int]*websocket.Conn)
-	go mux(ch, pool)
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Upgrade(w, r, w.Header(), 1024, 1024)
-		if err != nil {
-			http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
-			return
+	if conf.WS {
+		wsLoop(conf.Port, conf.Uri, ch)
+	} else {
+		for {
+			m := <- ch
+			fmt.Printf("%+v\n", m)
 		}
-		client_id++
-		pool[client_id] = conn
-	})
-	http.HandleFunc("/", rootHandler)
-	panic(http.ListenAndServe(":8080", nil))
-
+	}
 }
