@@ -3,5 +3,6 @@
 	"ProfilesApiToken":"",
 	"Port":"8080",
 	"Uri":"ws",
-	"WS":false
+	"WS":false,
+        "Redis":"127.0.0.1:6379"
 }

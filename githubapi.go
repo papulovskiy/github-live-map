@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"gopkg.in/redis.v3"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -13,6 +14,11 @@ import (
 const (
 	ApiBase = "https://api.github.com/"
 )
+
+type CacheStat struct {
+	Hit  int
+	Miss int
+}
 
 type Actor struct {
 	Id          int64  `json:"id"`
@@ -99,19 +105,29 @@ func Reader(ch chan<- Event) error {
 }
 
 func ReadProfile(url string, actor *Actor) error {
-        res, err := http.Get(url)
-        if err != nil {
-                return err
-        }
-        defer res.Body.Close()
-        body, err := ioutil.ReadAll(res.Body)
-        if err != nil {
-                return err
-        }
-        err = json.Unmarshal(body, &actor)
-        if err != nil {
-                return err
-        }
+	// TODO: implement Bloom filter here to avoid unnecessary Redis requests
+	value, err := redisClient.Get("loc_" + actor.Login).Result()
+	if err == nil {
+		actor.Location = value
+		redisStat.Hit++
+		//		fmt.Printf("Cache hit: %+v, %+v\n", actor.Login, value)
+		return nil
+	}
+	redisStat.Miss++
+	res, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(body, &actor)
+	if err != nil {
+		return err
+	}
+	redisClient.Set("loc_"+actor.Login, actor.Location, 0)
 	return nil
 }
 
@@ -126,7 +142,7 @@ func ProfileResolverLoop(ProfileCh <-chan Event, MessageCh chan<- Message) error
 		fmt.Printf("Profile Resolver loop: %+v %+v\n", event.Actor.Login, event.Type)
 		ReadProfile(event.Actor.Url, &event.Actor)
 		fmt.Printf("Profile: %+v\n", event.Actor)
-		panic(event.Actor)
+		//panic(event.Actor)
 		var m Message
 		var u User
 		u.Id = event.Actor.Id
@@ -149,7 +165,16 @@ func ProfileResolverLoop(ProfileCh <-chan Event, MessageCh chan<- Message) error
 	This function was removed because I found great Go's feature: buffered channels!
 */
 
+var redisClient *redis.Client
+var redisStat CacheStat
+
 func GitHubLoop(MessageCh chan<- Message) error {
+	redisClient = redis.NewClient(&redis.Options{
+		Addr:     conf.Redis,
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
 	EventCh := make(chan Event, 100) // Let's assume that if we're stuck on profile resolving, we shouldn't be reading a lot of new events
 	go Reader(EventCh)
 	go ProfileResolverLoop(EventCh, MessageCh)

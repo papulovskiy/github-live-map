@@ -16,6 +16,7 @@ type Configuration struct {
 	WS               bool
 	Port             string
 	Uri              string
+	Redis		string
 }
 
 type User struct {
@@ -45,8 +46,9 @@ func ReadConfig() Configuration {
 	return configuration
 }
 
+var conf Configuration
 func main() {
-	conf := ReadConfig()
+	conf = ReadConfig()
 	fmt.Printf("%+v\n", conf)
 	ch := make(chan Message)
 	go GitHubLoop(ch)
