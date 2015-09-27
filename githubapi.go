@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	//	"github.com/hashicorp/golang-lru"
-	"github.com/hishboy/gocommons/lang"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -119,36 +117,14 @@ func ProfileResolverLoop(ProfileCh <-chan Event, MessageCh chan<- Message) error
 	This loop is to buffer events from Reader and pass them one by one to profile resolver
 	because channels operations in go are blocking
 */
-func ProfileLoop(EventCh <-chan Event, MessageCh chan<- Message) error {
-	queue := lang.NewQueue()
-	ProfileCh := make(chan Event)                // channel between queue and profile resolver
-	go ProfileResolverLoop(ProfileCh, MessageCh) // profile resolver loop
-	for {
-		select {
-		case event := <-EventCh:
-			queue.Push(event)
-			fmt.Printf("Profiler, event queued: %+v %+v\n", event.Actor.Login, event.Type)
-		default:
-			/* Here we're trying to send event to profile resolver,
-			   if it does not receive event, we put it back to the queue */
-			if queue.Len() > 0 {
-				item := queue.Poll()
-				select {
-				case ProfileCh <- item.(Event):
-				default:
-					queue.Push(item)
-				}
-			}
-			//				fmt.Printf("Nothing to do\n")
-		}
-		//		fmt.Printf("Profiler: %+v %+v\n", event.Actor.Login, event.Type)
-	}
-	return nil
-}
+/*
+	This function was removed because I found great Go's feature: buffered channels!
+*/
+
 
 func GitHubLoop(MessageCh chan<- Message) error {
-	EventCh := make(chan Event)
+	EventCh := make(chan Event, 100) // Let's assume that if we're stuck on profile resolving, we shouldn't be reading a lot of new events
 	go Reader(EventCh)
-	go ProfileLoop(EventCh, MessageCh)
+	go ProfileResolverLoop(EventCh, MessageCh)
 	return nil
 }
