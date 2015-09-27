@@ -5,10 +5,17 @@ import (
 	"github.com/gorilla/websocket"
 	"net/http"
 	"io/ioutil"
+	"encoding/json"
+	"os"
 )
 
 type msg struct {
 	Num int
+}
+
+type Configuration struct {
+	EventsApiToken	string
+	ProfilesApiToken	string
 }
 
 type User struct {
@@ -78,9 +85,21 @@ func mux(ch chan Message, pool map[int]*websocket.Conn) {
 	}
 }
 
+func ReadConfig() Configuration {
+	file, _ := os.Open("config/app/app.json")
+	decoder := json.NewDecoder(file)
+	configuration := Configuration{}
+	err := decoder.Decode(&configuration)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	return configuration
+}
 
 var client_id int = 0
 func main() {
+	conf := ReadConfig()
+	fmt.Printf("%+v\n", conf)
 	ch := make(chan Message)
 	go GitHubLoop(ch)
 	pool := make(map[int]*websocket.Conn)
@@ -96,4 +115,5 @@ func main() {
 	})
 	http.HandleFunc("/", rootHandler)
 	panic(http.ListenAndServe(":8080", nil))
+
 }
