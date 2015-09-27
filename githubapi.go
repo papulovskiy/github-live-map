@@ -98,6 +98,23 @@ func Reader(ch chan<- Event) error {
 	return nil
 }
 
+func ReadProfile(url string, actor *Actor) error {
+        res, err := http.Get(url)
+        if err != nil {
+                return err
+        }
+        defer res.Body.Close()
+        body, err := ioutil.ReadAll(res.Body)
+        if err != nil {
+                return err
+        }
+        err = json.Unmarshal(body, &actor)
+        if err != nil {
+                return err
+        }
+	return nil
+}
+
 // So... Here we need to fetch user's location or check in the cache
 // I'd prefer to make two layers of cache:
 //	* small in-memory to handle most recent active users
@@ -107,6 +124,9 @@ func ProfileResolverLoop(ProfileCh <-chan Event, MessageCh chan<- Message) error
 	for {
 		event := <-ProfileCh
 		fmt.Printf("Profile Resolver loop: %+v %+v\n", event.Actor.Login, event.Type)
+		ReadProfile(event.Actor.Url, &event.Actor)
+		fmt.Printf("Profile: %+v\n", event.Actor)
+		panic(event.Actor)
 		var m Message
 		var u User
 		u.Id = event.Actor.Id
