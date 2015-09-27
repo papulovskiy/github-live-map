@@ -58,14 +58,14 @@ func ReadEvents(result *ApiResponse, remaining, reset *int64) error {
 	return nil
 }
 
-func ProcessEvents(result *ApiResponse, ch chan Event) error {
+func ProcessEvents(result *ApiResponse, ch chan<- Event) error {
 	for _, e := range result.Events {
 		ch <- e
 	}
 	return nil
 }
 
-func Reader(ch chan Event) error {
+func Reader(ch chan<- Event) error {
 	var r ApiResponse
 	var remaining, reset int64
 
@@ -96,7 +96,7 @@ func Reader(ch chan Event) error {
 // I'd prefer to make two layers of cache:
 //	* small in-memory to handle most recent active users
 //	* bigger cache based on redis to reduce amount of API calls
-func ProfileResolverLoop(ProfileCh chan Event, MessageCh chan Message) error {
+func ProfileResolverLoop(ProfileCh <-chan Event, MessageCh chan<- Message) error {
 	//	localUsers := make(map[string]*User)
 	for {
 		event := <-ProfileCh
@@ -119,7 +119,7 @@ func ProfileResolverLoop(ProfileCh chan Event, MessageCh chan Message) error {
 	This loop is to buffer events from Reader and pass them one by one to profile resolver
 	because channels operations in go are blocking
 */
-func ProfileLoop(EventCh chan Event, MessageCh chan Message) error {
+func ProfileLoop(EventCh <-chan Event, MessageCh chan<- Message) error {
 	queue := lang.NewQueue()
 	ProfileCh := make(chan Event)                // channel between queue and profile resolver
 	go ProfileResolverLoop(ProfileCh, MessageCh) // profile resolver loop
@@ -146,7 +146,7 @@ func ProfileLoop(EventCh chan Event, MessageCh chan Message) error {
 	return nil
 }
 
-func GitHubLoop(MessageCh chan Message) error {
+func GitHubLoop(MessageCh chan<- Message) error {
 	EventCh := make(chan Event)
 	go Reader(EventCh)
 	go ProfileLoop(EventCh, MessageCh)

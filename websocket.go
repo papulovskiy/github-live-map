@@ -15,7 +15,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", content)
 }
 
-func mux(ch chan Message, pool map[int]*websocket.Conn) {
+func mux(ch <-chan Message, pool map[int]*websocket.Conn) {
 	for {
 		m := <-ch
 		for _, conn := range pool {
@@ -26,7 +26,7 @@ func mux(ch chan Message, pool map[int]*websocket.Conn) {
 
 var client_id int = 0
 
-func wsLoop(port string, uri string, message chan Message) {
+func wsLoop(port string, uri string, message <-chan Message) {
 	pool := make(map[int]*websocket.Conn)
 	go mux(message, pool)
 	http.HandleFunc("/"+uri, func(w http.ResponseWriter, r *http.Request) {
